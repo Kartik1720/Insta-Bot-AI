@@ -30,7 +30,7 @@ def login_instagram():
     """Login to Instagram using session or credentials."""
     client = Client()
 
-    # Try loading an existing session
+    # Use a session file instead of login credentials
     if os.path.exists(SESSION_FILE):
         print("🔄 Loading existing session...")
         try:
@@ -38,36 +38,13 @@ def login_instagram():
             client.get_timeline_feed()  # Validate session
             print("✅ Session restored successfully!")
             return client
-            except Exception as e:
+        except Exception as e:
             print(f"⚠️ Error loading session: {e}")
     
-            print("⚠️ No valid session found! Log in manually on your local machine first.")
-            exit(1)
+    print("⚠️ No valid session found! Log in manually on your local machine first.")
+    exit(1)
 
-            client = login_instagram()
-
-    # Login with credentials if session is invalid or missing
-    try:
-        client.login(USERNAME, PASSWORD)
-        print("✅ Login successful!")
-
-        # Verify login by getting account info
-        user_info = client.account_info()
-        print(f"👤 Logged in as: {user_info.username} ({user_info.pk})")
-
-        # Save session
-        with open(SESSION_FILE, "w") as f:
-            json.dump(client.get_settings(), f)
-        print(f"✅ Session saved to {SESSION_FILE}!")
-
-    except exceptions.ChallengeRequired:
-        print("⚠️ Instagram requires verification.")
-        if handle_challenge(client):
-            with open(SESSION_FILE, "w") as f:
-                json.dump(client.get_settings(), f)
-            print("✅ Session saved after challenge!")
-
-    return client
+client = login_instagram()
 
 def handle_challenge(client):
     """Automatically handles Instagram challenge verification"""
