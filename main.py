@@ -1,14 +1,20 @@
+from instagrapi import Client, exceptions  # Import exceptions properly
 import time
+import os
+import json
 import undetected_chromedriver as uc
 from instagrapi import Client
 import openai
+# No need to import ChallengeChoice
 
 # Instagram credentials
 USERNAME = "gme955364"
-PASSWORD = "Hello@123"
+PASSWORD = "Hello@1234"
 
 # OpenAI API key
-OPENAI_API_KEY = "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"
+OPENAI_API_KEY = "sk-proj-KBB49xKASyzqCYGWz2thZ5IHBzoSZ0kqig4X5tPcqBrJjztz62gS6VT-qnn5v9P6UxY"
+
+SESSION_FILE = "session.json"
 
 def generate_reply(message):
     """Generate a reply using OpenAI."""
@@ -17,13 +23,79 @@ def generate_reply(message):
         model="gpt-3.5-turbo",
         messages=[{"role": "user", "content": message}]
     )
+
     return response["choices"][0]["message"]["content"]
 
 def login_instagram():
-    """Login to Instagram."""
+    """Login to Instagram using session or credentials."""
     client = Client()
-    client.login(USERNAME, PASSWORD)
+
+    # Try loading an existing session
+    if os.path.exists(SESSION_FILE):
+        print("🔄 Loading existing session...")
+        try:
+            client.load_settings(json.load(open(SESSION_FILE)))
+            client.get_timeline_feed()  # Validate session
+            print("✅ Session restored successfully!")
+            return client
+            except Exception as e:
+            print(f"⚠️ Error loading session: {e}")
+    
+            print("⚠️ No valid session found! Log in manually on your local machine first.")
+            exit(1)
+
+            client = login_instagram()
+
+    # Login with credentials if session is invalid or missing
+    try:
+        client.login(USERNAME, PASSWORD)
+        print("✅ Login successful!")
+
+        # Verify login by getting account info
+        user_info = client.account_info()
+        print(f"👤 Logged in as: {user_info.username} ({user_info.pk})")
+
+        # Save session
+        with open(SESSION_FILE, "w") as f:
+            json.dump(client.get_settings(), f)
+        print(f"✅ Session saved to {SESSION_FILE}!")
+
+    except exceptions.ChallengeRequired:
+        print("⚠️ Instagram requires verification.")
+        if handle_challenge(client):
+            with open(SESSION_FILE, "w") as f:
+                json.dump(client.get_settings(), f)
+            print("✅ Session saved after challenge!")
+
     return client
+
+def handle_challenge(client):
+    """Automatically handles Instagram challenge verification"""
+    print("⚠️ Challenge Required! Attempting to solve...")
+    
+    challenge_url = client.last_json.get("challenge", {}).get("url")
+    if not challenge_url:
+        print("❌ No challenge URL found. Try logging in manually.")
+        return False
+
+    # Manually choosing email option
+    client.challenge_resolve_simple(challenge_url, choice=1)  # 1 for email
+
+    time.sleep(5)  # Wait for the email from Instagram
+
+    # Ask user to manually check their email and enter the code
+    code = input("Enter the 6-digit code sent to your email: ").strip()
+    client.challenge_code_apply(code)
+
+    print("✅ Challenge Solved! Login Successful!")
+    return True
+
+def check_login_status(client):
+    try:
+        user_info = client.account_info()
+        print(f"✅ Logged in as: {user_info.username} with {user_info.follower_count} followers.")
+    except Exception as e:
+        print(f"❌ Not logged in! Error: {e}")
 
 def check_and_reply(client):
     """Check for unread messages and reply."""
@@ -46,4 +118,10 @@ def start_bot():
         print("Active for 5 minutes...")
 
 if __name__ == "__main__":
-    start_bot()
+    # Run locally first to generate session.json
+    if not os.path.exists(SESSION_FILE):
+        print("⚠️ Running locally to generate session first...")
+        login_instagram()
+        print("✅ Session saved! Now deploy the bot.")
+    else:
+        start_bot()
