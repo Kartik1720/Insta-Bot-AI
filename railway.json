@@ -1,0 +1,11 @@
+{
+  "build": {
+    "builder": "NIXPACKS",
+    "nixpacksPlan": {
+      "pkgs": ["python310"]
+    }
+  },
+  "deploy": {
+    "startCommand": "python main.py"
+  }
+}
